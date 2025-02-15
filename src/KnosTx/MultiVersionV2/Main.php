@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace KnosTx\MultiVersionV2;
 
-use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
-use pocketmine\event\player\PlayerPreLoginEvent;
+use pocketmine\event\server\DataPacketReceiveEvent;
 use pocketmine\event\player\PlayerJoinEvent;
-use pocketmine\network\mcpe\protocol\RequestNetworkSettingsPacket;
+use pocketmine\network\mcpe\protocol\LoginPacket;
+use pocketmine\utils\TextFormat;
 
 class Main extends PluginBase implements Listener {
 
     private ProtocolHandler $protocolHandler;
     private ConfigLoader $configLoader;
     private PlayerManager $playerManager;
-    private ?RequestNetworkSettingsPacket $requestNetworkSettings = null;
 
-    public function onEnable() : void {
+    public function onEnable(): void {
         $this->saveDefaultResources();
 
         $this->configLoader = new ConfigLoader($this);
@@ -27,38 +26,35 @@ class Main extends PluginBase implements Listener {
 
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
 
-        $this->requestNetworkSettings = new RequestNetworkSettingsPacket();
+        $supported = implode(", ", $this->configLoader->getSupportedProtocols());
+        $this->getLogger()->info(TextFormat::GREEN . "Supported Protocols: " . $supported);
     }
 
-    private function saveDefaultResources() : void {
-        $resources = ["config.yml", "versionMap.yml"];
-        foreach ($resources as $resource) {
-            if (!$this->getResource($resource)) {
+    private function saveDefaultResources(): void {
+        foreach (["config.yml", "default.json"] as $resource) {
+            if (!file_exists($this->getDataFolder() . $resource)) {
                 $this->saveResource($resource);
             }
         }
     }
 
-    public function onPlayerPreLogin(PlayerPreLoginEvent $event) : void {
-        $playerInfo = $event->getPlayerInfo();
+    public function onDataPacketReceive(DataPacketReceiveEvent $event): void {
+        $packet = $event->getPacket();
+        if ($packet instanceof LoginPacket) {
+            $protocol = $packet->protocol;
+            $session = $event->getOrigin();
+            $playerName = $session->getDisplayName() ?? "Unknown";
 
-        $protocol = $this->requestNetworkSettings?->getProtocolVersion() ?? 0;
-
-        if (!$this->protocolHandler->loadDataForProtocol($protocol)) {
-            $this->getLogger()->warning("Unsupported protocol {$protocol}. Using default fallback for {$playerInfo->getUsername()}.");
+            if ($this->protocolHandler->loadDataForProtocol($protocol)) {
+                $this->getLogger()->info("Player {$playerName} joined with protocol {$protocol}.");
+            } else {
+                $this->getLogger()->warning("Unsupported protocol {$protocol} for {$playerName}, using default data.");
+            }
         }
     }
 
-    public function onPlayerJoin(PlayerJoinEvent $event) : void {
+    public function onPlayerJoin(PlayerJoinEvent $event): void {
         $player = $event->getPlayer();
         $this->playerManager->handlePlayerJoin($player);
-    }
-
-    public function getRequestNetworkSettings() : ?RequestNetworkSettingsPacket {
-        return $this->requestNetworkSettings;
-    }
-
-    public function getPluginFile() : string {
-        return $this->getFile();
     }
 }
