@@ -44,6 +44,15 @@ class ConfigLoader{
     }
 
     /**
+     * Returns the list supported protocol versions.
+     *
+     * @return array
+     */
+    public function getSupportedProtocols(): array{
+        return array_keys($this->versionMap);
+    }
+
+    /**
      * Checks if players should be notified.
      *
      * @return bool
