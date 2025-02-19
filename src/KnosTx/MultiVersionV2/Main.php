@@ -43,7 +43,7 @@ class Main extends PluginBase implements Listener {
         if ($packet instanceof LoginPacket) {
             $protocol = $packet->protocol;
             $session = $event->getOrigin();
-            $playerName = $session->getDisplayName() ?? "Unknown";
+            $playerName = $session->getDisplayName();
 
             if ($this->protocolHandler->loadDataForProtocol($protocol)) {
                 $this->getLogger()->info("Player {$playerName} joined with protocol {$protocol}.");
